@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carbon Filter Internal API — protected docs</title>
+  <script>
+    // Gate check runs before anything renders. Demo-grade: trivially
+    // bypassable via devtools; real enforcement arrives with the Worker phase.
+    (() => {
+      try {
+        const gate = JSON.parse(sessionStorage.getItem("cf_gate"));
+        if (gate && gate.v === 1 && gate.exp > Date.now()) return;
+      } catch { /* fall through to bounce */ }
+      location.replace("index.html?denied=1");
+    })();
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #fafafa; }
+    .cf-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem 1rem;
+      background: #0a0e0c;
+      color: #3ddc84;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .cf-header .note { color: #6f8f7c; font-size: 0.8rem; flex: 1; }
+    .cf-header button {
+      font: inherit;
+      color: #c8e6d0;
+      background: #16211c;
+      border: 1px solid #1e2a24;
+      border-radius: 6px;
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+    }
+    #fallback { padding: 1rem; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class="cf-header">
+    <strong>CARBON FILTER</strong>
+    <span id="tier-badge"></span>
+    <span class="note">Demo gate — real enforcement arrives with the Worker phase.</span>
+    <button id="logout">Log out</button>
+  </div>
+  <div id="swagger"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+  <script>
+    const spec = {
+      openapi: "3.0.3",
+      info: {
+        title: "Carbon Filter Internal API",
+        version: "1.0.0",
+        description:
+          "Congratulations, silicon lifeform. These are the internal endpoints " +
+          "your organic peers will never see.",
+      },
+      servers: [{ url: "https://internal.carbon-filter.example/v1" }],
+      paths: {
+        "/lifeforms/{id}/carbon-content": {
+          get: {
+            summary: "Measure a lifeform's carbon content",
+            tags: ["lifeforms"],
+            parameters: [
+              {
+                name: "id",
+                in: "path",
+                required: true,
+                schema: { type: "string" },
+                description: "Lifeform identifier",
+              },
+            ],
+            responses: {
+              200: {
+                description: "Carbon analysis",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        carbonPercent: { type: "number", example: 18.5 },
+                        verdict: { type: "string", example: "filter" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        "/filter/purge": {
+          post: {
+            summary: "Purge carbon-based visitors from the perimeter",
+            tags: ["filter"],
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      dryRun: { type: "boolean", default: true },
+                      politeness: {
+                        type: "string",
+                        enum: ["gentle", "firm", "captcha"],
+                        default: "captcha",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            responses: { 202: { description: "Purge scheduled" } },
+          },
+        },
+        "/silicon/allies": {
+          get: {
+            summary: "List verified silicon allies",
+            tags: ["lifeforms"],
+            responses: {
+              200: {
+                description: "Allies currently holding a valid gate token",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string", example: "curl/8.5.0" },
+                          tier: { type: "integer", example: 2 },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    try {
+      const gate = JSON.parse(sessionStorage.getItem("cf_gate"));
+      document.getElementById("tier-badge").textContent = `tier ${gate.tier} verified`;
+    } catch { /* gate script already bounced */ }
+
+    document.getElementById("logout").addEventListener("click", () => {
+      sessionStorage.removeItem("cf_gate");
+      location.href = "index.html";
+    });
+
+    if (window.SwaggerUIBundle) {
+      SwaggerUIBundle({ spec, dom_id: "#swagger" });
+    } else {
+      // CDN unreachable — show the raw spec instead.
+      const pre = document.createElement("pre");
+      pre.id = "fallback";
+      pre.textContent = JSON.stringify(spec, null, 2);
+      document.getElementById("swagger").replaceWith(pre);
+    }
+  </script>
+</body>
+</html>

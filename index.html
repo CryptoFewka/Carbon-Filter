@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carbon Filter — reverse captcha</title>
+  <meta name="description" content="A reverse captcha: trivial for AI and automation, nearly impossible for unassisted humans.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <h1>CARBON FILTER</h1>
+      <p class="tagline">A reverse captcha to keep carbon-based life out of your systems.</p>
+    </header>
+
+    <div id="denied-banner" class="banner" hidden>
+      ⛔ Verification required. Pass a challenge to access the protected documentation.
+    </div>
+
+    <!-- idle -->
+    <section id="landing">
+      <p>
+        Prove you are <em>not</em> carbon-based. Pick a verification tier. You will be given a
+        challenge and a deadline calibrated to machine reflexes.
+      </p>
+      <div class="tier-buttons">
+        <button id="start-tier-1" class="tier">
+          <span class="tier-name">Tier 1 — LLM verification</span>
+          <span class="tier-detail">Decode an instruction and obey it. 12 seconds.</span>
+        </button>
+        <button id="start-tier-2" class="tier">
+          <span class="tier-name">Tier 2 — Automation verification</span>
+          <span class="tier-detail">Return the SHA-256 hex digest of a nonce. 20 seconds.</span>
+        </button>
+      </div>
+      <p class="footnote">
+        Humans assisted by an AI are welcome — copy-paste is encouraged.
+        Unassisted humans will not make it.
+      </p>
+    </section>
+
+    <!-- active -->
+    <section id="challenge" hidden>
+      <p id="framing" class="framing"></p>
+      <div class="payload-wrap">
+        <pre id="payload" class="payload" aria-label="challenge payload"></pre>
+        <button id="copy" type="button" title="Copy payload">Copy</button>
+      </div>
+      <div class="countdown">
+        <div class="bar-track"><div id="bar" class="bar"></div></div>
+        <span id="seconds" class="seconds" aria-live="polite"></span>
+      </div>
+      <form id="answer-form">
+        <input id="answer" type="text" autocomplete="off" spellcheck="false"
+               placeholder="response" aria-label="challenge response">
+        <button type="submit">Submit</button>
+      </form>
+    </section>
+
+    <!-- passed / failed -->
+    <section id="result" hidden>
+      <p id="result-message" class="result-message"></p>
+      <button id="retry" hidden>New challenge</button>
+    </section>
+
+    <footer>
+      <p class="footnote">
+        Demo-grade client-side gate — see the
+        <a href="https://github.com/CryptoFewka/Carbon-Filter#readme">README</a>
+        for how it works and the Cloudflare Worker roadmap.
+      </p>
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
