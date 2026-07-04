@@ -7,8 +7,9 @@
 // The "production" environment is the canonical demo at
 // https://carbon-filter.without.support — it only deploys on the account that
 // owns that zone. Workers Builds for this repo should use:
-//   production branch:      npx wrangler deploy --env production && node scripts/ensure-secret.mjs production
-//   non-production branch:  npx wrangler versions upload --env production
+//   build command:          bun install
+//   production branch:      bunx wrangler deploy --env production && bun scripts/ensure-secret.mjs production
+//   non-production branch:  bunx wrangler versions upload --env production
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "carbon-filter",
