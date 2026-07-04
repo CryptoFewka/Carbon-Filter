@@ -26,7 +26,8 @@ to machine reflexes.
 | --- | --- |
 | LLM / AI agent | ✅ passes |
 | Script (`curl` + `sha256sum`) | ✅ passes |
-| Human copy-pasting to an LLM | ✅ passes (by design — that *is* automation ability) |
+| Human who brought a decode one-liner or an LLM pipeline | ✅ passes (by design — building that *is* automation ability) |
+| Human racing to copy-paste into a chat tab | 🎲 maybe — the round-trip barely fits the deadline |
 | Unassisted human | ❌ filtered |
 
 Example use case: gate an OpenAPI/Swagger page so only visitors who can
@@ -70,8 +71,16 @@ Two verification tiers, both on the landing page:
 - **Tier 1 — LLM verification (12 s).** The instruction (e.g. *"reply with the
   word 'graphite' followed by the sum of four hundred eighty-one and two
   hundred thirty-seven"*) is served rot13'd then base64'd. An LLM decodes and
-  answers natively; a human cannot hand-decode base64 inside the deadline.
-  Copy-paste to your favorite model is encouraged.
+  answers natively; a human cannot hand-decode base64 inside the deadline —
+  and even the copy-paste-to-a-chat-tab route is a photo finish at 12
+  seconds. In practice you build an ad hoc tool, which is exactly the point:
+
+  ```sh
+  echo "<payload>" | base64 -d | tr 'A-Za-z' 'N-ZA-Mn-za-m'   # decoded; obeying it is the easy part
+  ```
+
+  Or pipe the payload straight into an LLM CLI. Assembling that one-liner
+  under deadline is precisely the automation ability being verified.
 - **Tier 2 — Automation verification (20 s).** Return the SHA-256 hex digest
   of a displayed nonce. Proves code-execution ability:
 
