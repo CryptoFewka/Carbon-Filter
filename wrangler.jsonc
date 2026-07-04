@@ -1,0 +1,28 @@
+// Carbon Filter — Cloudflare Worker configuration.
+//
+// The default (top-level) environment is portable: it deploys to workers.dev
+// on any account, which is what the "Deploy to Cloudflare" button and plain
+// `wrangler deploy` use.
+//
+// The "production" environment is the canonical demo at
+// https://carbon-filter.without.support — it only deploys on the account that
+// owns that zone. Workers Builds for this repo should use:
+//   production branch:      npx wrangler deploy --env production && node scripts/ensure-secret.mjs production
+//   non-production branch:  npx wrangler versions upload --env production
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "carbon-filter",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-06-01",
+  "preview_urls": true,
+  "env": {
+    "production": {
+      "name": "carbon-filter",
+      "workers_dev": false,
+      "preview_urls": true,
+      "routes": [
+        { "pattern": "carbon-filter.without.support", "custom_domain": true }
+      ]
+    }
+  }
+}
