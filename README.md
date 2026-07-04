@@ -119,9 +119,9 @@ Click the **Deploy to Cloudflare** button above — you'll be prompted for a
 `SECRET` (any long random string). Or manually:
 
 ```sh
-npm install
-npx wrangler deploy                 # deploys to <name>.<account>.workers.dev
-npx wrangler secret put SECRET      # paste something like `openssl rand -hex 32`
+bun install
+bunx wrangler deploy                 # deploys to <name>.<account>.workers.dev
+bunx wrangler secret put SECRET      # paste something like `openssl rand -hex 32`
 ```
 
 Without a `SECRET` the Worker still works but signs with a baked-in demo
@@ -137,8 +137,16 @@ that button/manual deploys stay portable. Dashboard build configuration:
 
 | Setting | Value |
 | --- | --- |
-| Production branch (`main`) deploy command | `npx wrangler deploy --env production && node scripts/ensure-secret.mjs production` |
-| Non-production branch deploy command | `npx wrangler versions upload --env production` (preview URLs) |
+| Build command | `bun install` |
+| Production branch (`main`) deploy command | `bunx wrangler deploy --env production && bun scripts/ensure-secret.mjs production` |
+| Non-production branch deploy command | `bunx wrangler versions upload --env production` (preview URLs) |
+
+Branch previews land on
+`<version-prefix>-carbon-filter.cysopnetwork.workers.dev` — the
+`cysopnetwork` part is the account's workers.dev subdomain (an account-level
+dashboard setting, not something wrangler config can express). Production has
+`workers_dev` disabled, so `preview_urls` is set to `true` explicitly in
+`wrangler.jsonc`; previews would otherwise default to off.
 
 [`scripts/ensure-secret.mjs`](scripts/ensure-secret.mjs) generates a random
 `SECRET` on the first deploy and is a no-op afterwards; if the build token
@@ -155,9 +163,10 @@ is the real thing.
 ## Development
 
 ```sh
+bun install                   # bun.lock is the committed lockfile
 node --test                   # core + worker test suite (Node >= 20, zero runtime deps)
 python3 -m http.server 8080   # serve the static demo (ES modules won't load via file://)
-npx wrangler dev              # run the Worker locally
+bunx wrangler dev             # run the Worker locally
 ```
 
 | File | Role |

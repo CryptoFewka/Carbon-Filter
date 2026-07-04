@@ -1,7 +1,7 @@
 // Ensures the Worker has a SECRET set, generating a random one on first run.
 //
 // Intended as a post-deploy step in Cloudflare Workers Builds:
-//   npx wrangler deploy --env production && node scripts/ensure-secret.mjs production
+//   bunx wrangler deploy --env production && bun scripts/ensure-secret.mjs production
 //
 // Never fails the build: if the build environment's API token can't manage
 // secrets, it prints instructions and exits 0 — the Worker keeps running on
@@ -14,7 +14,7 @@ import { randomBytes } from "node:crypto";
 const env = process.argv[2];
 const envArgs = env ? ["--env", env] : [];
 const wrangler = (args, input) =>
-  execFileSync("npx", ["wrangler", ...args, ...envArgs], {
+  execFileSync("bunx", ["wrangler", ...args, ...envArgs], {
     input,
     encoding: "utf8",
     stdio: ["pipe", "pipe", "pipe"],
@@ -36,7 +36,7 @@ try {
       `  ${String(err.message || err).split("\n")[0]}`,
       "  The Worker will run with the insecure demo secret (see the",
       "  x-carbon-filter-warning response header) until you run:",
-      `    npx wrangler secret put SECRET${env ? ` --env ${env}` : ""}`,
+      `    bunx wrangler secret put SECRET${env ? ` --env ${env}` : ""}`,
     ].join("\n"),
   );
   process.exit(0);
