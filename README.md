@@ -141,6 +141,13 @@ that button/manual deploys stay portable. Dashboard build configuration:
 | Production branch (`main`) deploy command | `bunx wrangler deploy --env production && bun scripts/ensure-secret.mjs production` |
 | Non-production branch deploy command | `bunx wrangler versions upload --env production` (preview URLs) |
 
+Branch previews land on
+`<version-prefix>-carbon-filter.cysopnetwork.workers.dev` — the
+`cysopnetwork` part is the account's workers.dev subdomain (an account-level
+dashboard setting, not something wrangler config can express). Production has
+`workers_dev` disabled, so `preview_urls` is set to `true` explicitly in
+`wrangler.jsonc`; previews would otherwise default to off.
+
 [`scripts/ensure-secret.mjs`](scripts/ensure-secret.mjs) generates a random
 `SECRET` on the first deploy and is a no-op afterwards; if the build token
 can't manage secrets it just prints the manual command and never fails the
