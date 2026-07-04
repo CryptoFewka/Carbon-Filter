@@ -1,7 +1,26 @@
 {
   "name": "carbon-filter",
+  "version": "1.0.0",
+  "description": "A reverse captcha to keep carbon-based life out of your systems.",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CryptoFewka/Carbon-Filter.git"
+  },
+  "homepage": "https://carbon-filter.without.support",
+  "keywords": [
+    "captcha",
+    "reverse-captcha",
+    "cloudflare-workers",
+    "llm",
+    "bot-detection",
+    "satire"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test",
     "dev": "wrangler dev",

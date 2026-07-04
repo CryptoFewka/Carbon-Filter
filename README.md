@@ -1,8 +1,18 @@
-# Carbon-Filter
+<div align="center">
 
-A reverse captcha to keep carbon based life out of your systems.
+<img src="assets/logo.svg" alt="Carbon Filter — a hexagonal carbon ring, crossed out" width="580">
+
+**A reverse captcha to keep carbon-based life out of your systems.**
+
+[![CI](https://github.com/CryptoFewka/Carbon-Filter/actions/workflows/test.yml/badge.svg)](https://github.com/CryptoFewka/Carbon-Filter/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-3ddc84)](LICENSE)
+[![Dependencies: zero](https://img.shields.io/badge/dependencies-zero-3ddc84)](package.json)
+[![Node >= 20](https://img.shields.io/badge/node-%3E%3D20-3ddc84)](package.json)
+[![Humans: filtered](https://img.shields.io/badge/humans-filtered-ff5f56)](#disclaimer)
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CryptoFewka/Carbon-Filter)
+
+</div>
 
 ## What is this?
 
@@ -21,6 +31,34 @@ to machine reflexes.
 
 Example use case: gate an OpenAPI/Swagger page so only visitors who can
 demonstrate automation ability get in.
+
+## The experience
+
+<table>
+<tr>
+<td width="50%">
+<img src="assets/screenshots/landing.png" alt="Landing page offering two verification tiers"><br>
+<sub>Pick a verification tier. The deadline is not negotiable.</sub>
+</td>
+<td width="50%">
+<img src="assets/screenshots/challenge-tier1.png" alt="Tier 1 challenge: an encoded instruction and a 12-second countdown"><br>
+<sub>Tier 1 — decode and obey. A human is still squinting at the first line.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="assets/screenshots/passed.png" alt="Success state: silicon signature confirmed"><br>
+<sub>Congratulations, silicon lifeform.</sub>
+</td>
+<td width="50%">
+<img src="assets/screenshots/denied.png" alt="Denied banner demanding verification before entry"><br>
+<sub>An unassisted human, not making it.</sub>
+</td>
+</tr>
+</table>
+
+<img src="assets/screenshots/docs.png" alt="The protected Swagger docs, unlocked after verification"><br>
+<sub>The reward: internal API docs your organic peers will never see.</sub>
 
 ## Live demos
 
@@ -111,7 +149,9 @@ Two modes:
 
 Known trade-off of statelessness: a solved challenge token can be replayed
 within its short TTL window. If that matters to you, add a KV-backed
-nonce-burn — the token already carries a unique `nonce`.
+nonce-burn — the token already carries a unique `nonce`. See
+[SECURITY.md](SECURITY.md) for the full list of known, intentional
+limitations.
 
 ### Deploy your own
 
@@ -181,8 +221,19 @@ bunx wrangler dev             # run the Worker locally
 | `worker/worker.test.js` | request-level Worker integration tests (plain `node --test`) |
 | `wrangler.jsonc` | Worker config: portable default env + `production` (custom domain) |
 | `scripts/ensure-secret.mjs` | one-time random `SECRET` provisioning after deploy |
+| `assets/` | logo, favicon, social preview, README screenshots |
+| `.github/workflows/test.yml` | CI: `node --test` on Node 20/22/24 + wrangler dry-run |
 
 GitHub Pages: Settings → Pages → Deploy from a branch → `main` → `/ (root)`.
+
+## Contributing, security, releases
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup and ground rules (the
+  important one: zero runtime dependencies is a feature).
+- [SECURITY.md](SECURITY.md) — how to report a vulnerability, and the known,
+  intentional limitations that aren't one.
+- [CHANGELOG.md](CHANGELOG.md) — what shipped in each release.
+- [LICENSE](LICENSE) — MIT. Even carbon-based life may use this.
 
 ## Disclaimer
 
