@@ -2,6 +2,8 @@
 
 A reverse captcha to keep carbon based life out of your systems.
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CryptoFewka/Carbon-Filter)
+
 ## What is this?
 
 A normal captcha proves you are human. **Carbon Filter proves you are not** —
@@ -20,7 +22,10 @@ to machine reflexes.
 Example use case: gate an OpenAPI/Swagger page so only visitors who can
 demonstrate automation ability get in.
 
-## Demo
+## Live demos
+
+- **Cloudflare Worker (server-enforced):** <https://carbon-filter.without.support>
+- **GitHub Pages (client-side demo):** <https://cryptofewka.github.io/Carbon-Filter/>
 
 Two verification tiers, both on the landing page:
 
@@ -36,8 +41,8 @@ Two verification tiers, both on the landing page:
   echo -n "<nonce>" | sha256sum
   ```
 
-Pass either tier and you're redirected to the protected
-[Carbon Filter Internal API docs](docs.html).
+Pass either tier and you're redirected to the protected Carbon Filter
+Internal API docs.
 
 ## How it works
 
@@ -77,41 +82,96 @@ letter-level reversal, tasks LLMs ace at ~100%):
 Failed or expired challenges are discarded; a fresh challenge (new nonce, new
 task) is always generated. Never reused.
 
-## This demo is bypassable (on purpose)
+The core logic lives in a single isomorphic, zero-dependency module —
+[`carbon-filter.js`](carbon-filter.js) — shared verbatim by the browser demo
+and the Cloudflare Worker.
 
-This is a **GitHub Pages static demo**: challenges are generated and verified
-in your browser, and the "protected" docs page is gated by a `sessionStorage`
-token. Anyone with devtools can read the source, skip the countdown, or set
-the gate token by hand. That's fine — the demo exists to prove the mechanism
-and the UX. Real enforcement is the Worker phase below.
+## The Cloudflare Worker (real enforcement)
 
-## Roadmap: Cloudflare Worker phase
+The Worker version moves generation and verification server-side. It is fully
+stateless — no KV, no database:
 
-The core module (`carbon-filter.js`) is isomorphic — no DOM, no Node APIs,
-only `globalThis.crypto` and `atob`/`btoa` — so a Cloudflare Worker imports it
-unchanged. The Worker phase moves generation and verification server-side:
+- `POST /api/challenge` issues a challenge whose full token (including the
+  answer digest) is **HMAC-SHA256-sealed** with the `SECRET` binding, then
+  round-trips through the client.
+- `POST /api/verify` re-opens the token (any tampering → rejected), checks the
+  deadline against the **server clock**, and compares the answer digest. Devtools
+  can't help you here.
+- Passing sets a sealed, `HttpOnly` **gate cookie** (15 minutes). Every gated
+  request re-verifies it.
 
-- The challenge token above gets **HMAC-signed** (Worker `SECRET` binding) and
-  round-trips through the client; verification checks signature + TTL + digest.
-- Passing sets a **signed cookie**; no KV or storage needed — fully stateless.
-- **Self-contained mode:** the Worker serves a bundled Swagger UI at `/docs`
-  behind the signed cookie. Deploy with `wrangler deploy` and it works as-is.
-- **Middleware mode:** set `ORIGIN_URL` and the Worker becomes a generic gate,
-  proxying only requests that carry a valid cookie.
+Two modes:
+
+- **Self-contained (default):** the Worker serves the challenge at `/` and the
+  protected Swagger docs at `/docs`. Works out of the box.
+- **Middleware:** set the `ORIGIN_URL` variable and the Worker becomes a
+  generic gate — every path except `/` and `/api/*` is proxied to your origin
+  only for visitors holding a valid gate cookie (the gate cookie is stripped
+  before forwarding). Point it at your real Swagger host and you're done.
+
+Known trade-off of statelessness: a solved challenge token can be replayed
+within its short TTL window. If that matters to you, add a KV-backed
+nonce-burn — the token already carries a unique `nonce`.
+
+### Deploy your own
+
+Click the **Deploy to Cloudflare** button above — you'll be prompted for a
+`SECRET` (any long random string). Or manually:
+
+```sh
+npm install
+npx wrangler deploy                 # deploys to <name>.<account>.workers.dev
+npx wrangler secret put SECRET      # paste something like `openssl rand -hex 32`
+```
+
+Without a `SECRET` the Worker still works but signs with a baked-in demo
+secret and flags every response with
+`x-carbon-filter-warning: insecure-demo-secret`.
+
+### How the canonical demo deploys
+
+The demo at `carbon-filter.without.support` uses [Workers
+Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) watching this
+repo, with the custom domain kept in the `production` wrangler environment so
+that button/manual deploys stay portable. Dashboard build configuration:
+
+| Setting | Value |
+| --- | --- |
+| Production branch (`main`) deploy command | `npx wrangler deploy --env production && node scripts/ensure-secret.mjs production` |
+| Non-production branch deploy command | `npx wrangler versions upload --env production` (preview URLs) |
+
+[`scripts/ensure-secret.mjs`](scripts/ensure-secret.mjs) generates a random
+`SECRET` on the first deploy and is a no-op afterwards; if the build token
+can't manage secrets it just prints the manual command and never fails the
+build.
+
+## The GitHub Pages demo is bypassable (on purpose)
+
+The static demo generates and verifies challenges in your browser, and the
+"protected" docs page is gated by a `sessionStorage` token. Anyone with
+devtools can skip it. It exists to prove the mechanism and the UX; the Worker
+is the real thing.
 
 ## Development
 
 ```sh
-python3 -m http.server 8080   # ES modules won't load via file://
-node --test                   # core module test suite (Node >= 20, zero deps)
+node --test                   # core + worker test suite (Node >= 20, zero runtime deps)
+python3 -m http.server 8080   # serve the static demo (ES modules won't load via file://)
+npx wrangler dev              # run the Worker locally
 ```
 
 | File | Role |
 | --- | --- |
 | `carbon-filter.js` | core isomorphic module: token shape, task registry, verification |
-| `carbon-filter.test.js` | `node --test` suite |
-| `index.html` / `app.js` / `style.css` | landing + challenge UI |
-| `docs.html` | gated demo docs (Swagger UI from a pinned CDN, raw-JSON fallback) |
+| `carbon-filter.test.js` | core test suite |
+| `index.html` / `app.js` / `style.css` | static demo: landing + challenge UI |
+| `docs.html` / `openapi-spec.js` | static demo: gated docs + the shared fake OpenAPI spec |
+| `worker/index.js` | Worker: routes, cookie gate, proxy mode |
+| `worker/sign.js` | HMAC sealing for tokens and cookies |
+| `worker/pages.js` | Worker-served challenge + docs pages |
+| `worker/worker.test.js` | request-level Worker integration tests (plain `node --test`) |
+| `wrangler.jsonc` | Worker config: portable default env + `production` (custom domain) |
+| `scripts/ensure-secret.mjs` | one-time random `SECRET` provisioning after deploy |
 
 GitHub Pages: Settings → Pages → Deploy from a branch → `main` → `/ (root)`.
 

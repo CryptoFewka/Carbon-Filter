@@ -1,0 +1,11 @@
+# HMAC signing secret for challenge tokens and the gate cookie.
+# Set a long random value, e.g. `openssl rand -hex 32`.
+# Without it the Worker falls back to a baked-in demo secret and flags every
+# response with `x-carbon-filter-warning: insecure-demo-secret`.
+SECRET=
+
+# Optional — middleware mode. Set to an origin URL (e.g. https://api.example.com)
+# to make the Worker a generic gate: every path except / and /api/* is proxied
+# to this origin only for visitors holding a valid gate cookie.
+# Leave unset for the self-contained demo (gated Swagger docs at /docs).
+# ORIGIN_URL=
