@@ -30,7 +30,10 @@ async function start(selectedTier) {
   $("framing").textContent =
     tier === 1
       ? "Decode and obey within the deadline:"
-      : "Return the SHA-256 hex digest of this nonce:";
+      : "Apply the steps to input, in order; reply with the final string. " +
+        "Ops: sha256 = lowercase hex SHA-256 of the ASCII string; " +
+        "take:N / drop:N = keep / remove the first N characters; " +
+        "reverse = reverse the string; concat:S = append S.";
   $("payload").textContent = challenge.payload;
   $("answer").value = "";
   $("seconds").textContent = `${challenge.ttl}s`;

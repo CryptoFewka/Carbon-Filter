@@ -4,6 +4,7 @@ import {
   TASKS,
   TIER_TTL,
   TIER1_ENCODING,
+  applyPipeline,
   decodePayload,
   encodePayload,
   generateChallenge,
@@ -105,26 +106,53 @@ for (const taskId of Object.keys(TASKS)) {
   });
 }
 
-test("tier 2: sha256 of the nonce verifies, case-insensitively", async () => {
-  const ch = await generateChallenge(2);
-  assert.equal(ch.task, "sha256-nonce");
-  assert.equal(ch.payload, ch.nonce);
-  assert.deepEqual(ch.encoding, []);
-  assert.equal(ch.ttl, TIER_TTL[2]);
+test("applyPipeline op semantics", async () => {
+  assert.equal(await applyPipeline("abc", ["sha256"]), await sha256Hex("abc"));
+  assert.equal(await applyPipeline("abcdef", ["take:3"]), "abc");
+  assert.equal(await applyPipeline("abcdef", ["drop:2"]), "cdef");
+  assert.equal(await applyPipeline("abc", ["reverse"]), "cba");
+  assert.equal(await applyPipeline("abc", ["concat:12"]), "abc12");
+  assert.equal(
+    await applyPipeline("abc", ["sha256", "take:16", "reverse", "sha256"]),
+    await sha256Hex([...(await sha256Hex("abc")).slice(0, 16)].reverse().join("")),
+  );
+  await assert.rejects(() => applyPipeline("x", ["rot26"]), RangeError);
+});
 
-  const digest = await sha256Hex(ch.nonce);
-  assert.deepEqual(await verifyAnswer(ch, digest), { ok: true, reason: "" });
-  assert.deepEqual(await verifyAnswer(ch, digest.toUpperCase()), { ok: true, reason: "" });
-  assert.deepEqual(await verifyAnswer(ch, digest.slice(0, 63)), {
-    ok: false,
-    reason: "wrong",
-  });
+test("tier 2: randomized hash pipeline verifies, case-insensitively", async () => {
+  for (let i = 0; i < 25; i++) {
+    const ch = await generateChallenge(2);
+    assert.equal(ch.task, "hash-pipeline");
+    assert.deepEqual(ch.encoding, []);
+    assert.equal(ch.ttl, TIER_TTL[2]);
+
+    const { input, steps } = JSON.parse(ch.payload);
+    assert.equal(input, ch.nonce);
+    assert.equal(steps[0], "sha256");
+    assert.equal(steps.at(-1), "sha256");
+    assert.ok(steps.length >= 3 && steps.length <= 7, "3-7 steps");
+
+    const answer = await applyPipeline(input, steps);
+    assert.match(answer, /^[0-9a-f]{64}$/, "answer is always a full digest");
+    assert.deepEqual(await verifyAnswer(ch, answer), { ok: true, reason: "" });
+    assert.deepEqual(await verifyAnswer(ch, answer.toUpperCase()), { ok: true, reason: "" });
+    assert.deepEqual(await verifyAnswer(ch, answer.slice(0, 63)), {
+      ok: false,
+      reason: "wrong",
+    });
+    // the memorized old one-liner no longer cuts it
+    assert.deepEqual(await verifyAnswer(ch, await sha256Hex(ch.nonce)), {
+      ok: false,
+      reason: "wrong",
+    });
+  }
 });
 
 test("expiry boundary: exactly ttl passes, one ms later expires", async () => {
   const now = 1751587200000;
   const ch = await generateChallenge(2, { now });
-  const digest = await sha256Hex(ch.nonce);
+  const { input, steps } = JSON.parse(ch.payload);
+  const digest = await applyPipeline(input, steps);
   const edge = now + ch.ttl * 1000;
 
   assert.equal(isExpired(ch, edge), false);

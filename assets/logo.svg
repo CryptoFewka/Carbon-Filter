@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" role="img" aria-label="Carbon Filter — a reverse captcha to keep carbon-based life out of your systems">
+  <defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect y="2" width="4" height="2" fill="rgba(0,0,0,0.18)"/>
+    </pattern>
+  </defs>
+  <rect width="640" height="160" rx="12" fill="#0a0e0c"/>
+  <rect width="640" height="160" rx="12" fill="url(#scanlines)"/>
+  <rect x="0.5" y="0.5" width="639" height="159" rx="12" fill="none" stroke="#1e2a24"/>
+  <!-- carbon hexagon, filtered -->
+  <polygon points="80,40 114.6,60 114.6,100 80,120 45.4,100 45.4,60" fill="none" stroke="#3ddc84" stroke-width="6" stroke-linejoin="round" filter="url(#glow)"/>
+  <line x1="52" y1="110" x2="108" y2="50" stroke="#ff5f56" stroke-width="6" stroke-linecap="round"/>
+  <g font-family="'SFMono-Regular', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace">
+    <text x="150" y="84" font-size="34" letter-spacing="11" fill="#3ddc84" filter="url(#glow)">CARBON FILTER</text>
+    <text x="150" y="116" font-size="15" fill="#6f8f7c">a reverse captcha &#8212; keeps carbon-based life out</text>
+  </g>
+</svg>

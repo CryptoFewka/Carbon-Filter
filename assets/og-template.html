@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Carbon Filter — OG image template (render at 1200×630)</title>
+<!--
+  Social preview source. Regenerate assets/og.png by screenshotting this file
+  at viewport 1200x630, deviceScaleFactor 1 (see CONTRIBUTING.md).
+-->
+<style>
+  :root { --bg:#0a0e0c; --ink:#c8e6d0; --dim:#6f8f7c; --accent:#3ddc84; --danger:#ff5f56; --border:#1e2a24; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    background:
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 0, 0, 0.18) 3px 6px),
+      var(--bg);
+    color: var(--ink);
+    font-family: "SFMono-Regular", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card { width: 1040px; }
+  .top { display: flex; align-items: center; gap: 48px; }
+  .mark { flex: none; }
+  h1 {
+    font-size: 72px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-shadow: 0 0 28px rgba(61, 220, 132, 0.45);
+    white-space: nowrap;
+  }
+  .tagline { margin-top: 18px; font-size: 30px; color: var(--dim); }
+  .verdicts {
+    margin-top: 52px;
+    background: #101614;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 36px;
+    font-size: 30px;
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+  }
+  .verdicts .no { color: var(--danger); }
+  .url { margin-top: 40px; text-align: center; font-size: 24px; color: var(--dim); }
+  .url strong { color: var(--accent); font-weight: normal; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <svg class="mark" width="180" height="180" viewBox="0 0 64 64">
+        <polygon points="32,12 49.3,22 49.3,42 32,52 14.7,42 14.7,22" fill="none" stroke="#3ddc84" stroke-width="5" stroke-linejoin="round"/>
+        <line x1="16" y1="48" x2="48" y2="16" stroke="#ff5f56" stroke-width="5" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>CARBON FILTER</h1>
+        <p class="tagline">A reverse captcha to keep carbon-based life out of your systems.</p>
+      </div>
+    </div>
+    <div class="verdicts">
+      <span>LLM ✅</span>
+      <span>script ✅</span>
+      <span class="no">unassisted human ❌</span>
+    </div>
+    <p class="url"><strong>carbon-filter.without.support</strong> · MIT · zero dependencies</p>
+  </div>
+</body>
+</html>

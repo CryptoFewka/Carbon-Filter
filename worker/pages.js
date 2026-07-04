@@ -3,6 +3,12 @@
 
 import { OPENAPI_SPEC } from "../openapi-spec.js";
 
+// assets/favicon.svg, base64-inlined: the Worker routes only /, /docs and
+// /api/*, so a linked favicon file would 404 (or denied-bounce in middleware
+// mode). Regenerate with `base64 -w0 assets/favicon.svg`.
+const FAVICON =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMwYTBlMGMiLz4KICA8cG9seWdvbiBwb2ludHM9IjMyLDEyIDQ5LjMsMjIgNDkuMyw0MiAzMiw1MiAxNC43LDQyIDE0LjcsMjIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzNkZGM4NCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPGxpbmUgeDE9IjE2IiB5MT0iNDgiIHgyPSI0OCIgeTI9IjE2IiBzdHJva2U9IiNmZjVmNTYiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=";
+
 const STYLE = `
   :root { --bg:#0a0e0c; --panel:#101614; --ink:#c8e6d0; --dim:#6f8f7c; --accent:#3ddc84; --danger:#ff5f56; --border:#1e2a24; }
   * { box-sizing: border-box; }
@@ -67,7 +73,10 @@ const CHALLENGE_SCRIPT = `
     state = { token: ch.token, ttlMs: ch.ttl * 1000, deadline: Date.now() + ch.ttl * 1000 };
     $("framing").textContent = tier === 1
       ? "Decode and obey within the deadline:"
-      : "Return the SHA-256 hex digest of this nonce:";
+      : "Apply the steps to input, in order; reply with the final string. " +
+        "Ops: sha256 = lowercase hex SHA-256 of the ASCII string; " +
+        "take:N / drop:N = keep / remove the first N characters; " +
+        "reverse = reverse the string; concat:S = append S.";
     $("payload").textContent = ch.payload;
     $("answer").value = "";
     $("seconds").textContent = ch.ttl + "s";
@@ -139,6 +148,14 @@ export function challengePage() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Carbon Filter — reverse captcha</title>
+  <meta name="description" content="A reverse captcha: trivial for AI and automation, nearly impossible for unassisted humans.">
+  <link rel="icon" type="image/svg+xml" href="${FAVICON}">
+  <meta property="og:title" content="Carbon Filter — reverse captcha">
+  <meta property="og:description" content="A reverse captcha: trivial for AI and automation, nearly impossible for unassisted humans.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://carbon-filter.without.support/">
+  <meta property="og:image" content="https://cryptofewka.github.io/Carbon-Filter/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
   <style>${STYLE}</style>
 </head>
 <body>
@@ -157,15 +174,15 @@ export function challengePage() {
       <div class="tier-buttons">
         <button id="start-tier-1" class="tier">
           <span class="tier-name">Tier 1 — LLM verification</span>
-          <span class="tier-detail">Decode an instruction and obey it. 12 seconds.</span>
+          <span class="tier-detail">Comprehend an encoded transmission and answer it. 10 seconds.</span>
         </button>
         <button id="start-tier-2" class="tier">
           <span class="tier-name">Tier 2 — Automation verification</span>
-          <span class="tier-detail">Return the SHA-256 hex digest of a nonce. 20 seconds.</span>
+          <span class="tier-detail">Implement a randomized hash pipeline. 20 seconds.</span>
         </button>
       </div>
-      <p class="footnote">Humans assisted by an AI are welcome — copy-paste is encouraged.
-      Unassisted humans will not make it.</p>
+      <p class="footnote">Humans with an AI or a script at hand are welcome — the deadline
+      assumes you brought one. Unassisted humans will not make it.</p>
     </section>
     <section id="challenge" hidden>
       <p id="framing" class="framing"></p>
@@ -189,7 +206,8 @@ export function challengePage() {
     </section>
     <footer>
       <p class="footnote">Server-enforced by a Cloudflare Worker — see the
-      <a href="https://github.com/CryptoFewka/Carbon-Filter#readme">README</a> to deploy your own.</p>
+      <a href="https://github.com/CryptoFewka/Carbon-Filter#readme">README</a> to deploy your own.
+      v1.0.0 · MIT.</p>
     </footer>
   </main>
   <script>${CHALLENGE_SCRIPT}</script>
@@ -204,6 +222,7 @@ export function docsPage(tier) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Carbon Filter Internal API — protected docs</title>
+  <link rel="icon" type="image/svg+xml" href="${FAVICON}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
   <style>
     body { margin:0; font-family:sans-serif; background:#fafafa; }
