@@ -18,11 +18,16 @@ First stable release. Carbon-based life remains filtered.
   Worker. Self-describing challenge tokens carry only an answer digest —
   never the plaintext answer; verification is a SHA-256 digest comparison
   plus a TTL check, with forgiving answer normalization.
-- **Tier 1 — LLM verification (12 s):** instructions served rot13'd then
-  base64'd, across five tokenizer-safe task archetypes (`arith-prose`,
-  `nth-word`, `word-reverse`, `acrostic`, `echo-transform`).
-- **Tier 2 — Automation verification (20 s):** return the SHA-256 hex digest
-  of a displayed nonce.
+- **Tier 1 — LLM verification (10 s):** ~100-word transmissions served
+  rot13'd then base64'd, across five passage-scale, tokenizer-safe task
+  archetypes (`hidden-codeword`, `odd-category`, `arith-prose`,
+  `sentence-hunt`, `scattered-parts`). Even decoded, answering outruns human
+  reading speed inside the deadline, and `odd-category` requires semantic
+  knowledge no regex provides.
+- **Tier 2 — Automation verification (20 s):** apply a per-challenge
+  randomized derivation pipeline (`sha256` / `take:N` / `drop:N` / `reverse`
+  / `concat:S`) to a nonce. No memorizable one-liner exists; you write a
+  small program under the deadline.
 - **Static demo** (GitHub Pages): landing + challenge UI with countdown, and
   a `sessionStorage`-gated Swagger docs page — bypassable by design.
 - **Cloudflare Worker** (`worker/`): fully stateless server-side enforcement.

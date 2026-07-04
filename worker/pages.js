@@ -73,7 +73,10 @@ const CHALLENGE_SCRIPT = `
     state = { token: ch.token, ttlMs: ch.ttl * 1000, deadline: Date.now() + ch.ttl * 1000 };
     $("framing").textContent = tier === 1
       ? "Decode and obey within the deadline:"
-      : "Return the SHA-256 hex digest of this nonce:";
+      : "Apply the steps to input, in order; reply with the final string. " +
+        "Ops: sha256 = lowercase hex SHA-256 of the ASCII string; " +
+        "take:N / drop:N = keep / remove the first N characters; " +
+        "reverse = reverse the string; concat:S = append S.";
     $("payload").textContent = ch.payload;
     $("answer").value = "";
     $("seconds").textContent = ch.ttl + "s";
@@ -171,15 +174,15 @@ export function challengePage() {
       <div class="tier-buttons">
         <button id="start-tier-1" class="tier">
           <span class="tier-name">Tier 1 — LLM verification</span>
-          <span class="tier-detail">Decode an instruction and obey it. 12 seconds.</span>
+          <span class="tier-detail">Comprehend an encoded transmission and answer it. 10 seconds.</span>
         </button>
         <button id="start-tier-2" class="tier">
           <span class="tier-name">Tier 2 — Automation verification</span>
-          <span class="tier-detail">Return the SHA-256 hex digest of a nonce. 20 seconds.</span>
+          <span class="tier-detail">Implement a randomized hash pipeline. 20 seconds.</span>
         </button>
       </div>
-      <p class="footnote">Humans assisted by an AI are welcome — copy-paste is encouraged.
-      Unassisted humans will not make it.</p>
+      <p class="footnote">Humans with an AI or a script at hand are welcome — the deadline
+      assumes you brought one. Unassisted humans will not make it.</p>
     </section>
     <section id="challenge" hidden>
       <p id="framing" class="framing"></p>

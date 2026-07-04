@@ -23,8 +23,11 @@ For local Worker secrets, copy `.dev.vars.example` to `.dev.vars`.
 - **`carbon-filter.js` must stay isomorphic.** It runs verbatim in browsers,
   Node >= 20, and Cloudflare Workers, so it may only use `globalThis.crypto`
   and `atob`/`btoa` — no imports, no Node-only APIs, no build step.
-- **New tier-1 archetypes must be tokenizer-safe.** Tasks LLMs solve at
-  ~100%: no letter counting, no letter-level reversal. Add the archetype to
+- **New tier-1 archetypes must be tokenizer-safe and passage-scale.** Tasks
+  LLMs solve at ~100%: no letter counting, no letter-level reversal. And
+  tasks a human cannot finish inside the deadline even after running the
+  payload through a decode one-liner — bury the question in ~100 words of
+  distractor prose or require semantic knowledge. Add the archetype to
   `TASKS` in `carbon-filter.js`, teach the reference solver in
   `worker/worker.test.js` to answer it, and extend the repeated-generation
   tests in `carbon-filter.test.js` (the existing pattern generates each

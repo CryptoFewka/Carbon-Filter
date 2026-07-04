@@ -3,7 +3,15 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import worker from "./index.js";
 import { sealToken, openToken } from "./sign.js";
-import { decodePayload, numberToWords, sha256Hex } from "../carbon-filter.js";
+import {
+  CATEGORIES,
+  TASKS,
+  applyPipeline,
+  decodePayload,
+  generateChallenge,
+  numberToWords,
+  verifyAnswer,
+} from "../carbon-filter.js";
 
 const SECRET = "test-secret";
 const BASE = "https://filter.example";
@@ -28,22 +36,56 @@ function gateCookie(res) {
 const WORDS_TO_NUM = new Map();
 for (let n = 0; n <= 999; n++) WORDS_TO_NUM.set(numberToWords(n), n);
 
+const stripPunct = (w) => w.replace(/[".]/g, "");
+
 function solve(instruction) {
   let m;
-  if ((m = instruction.match(/^Reply with the text "(.+)" in uppercase\.$/)))
-    return m[1].toUpperCase();
-  if ((m = instruction.match(/joined into one lowercase string: (.+)\.$/)))
-    return m[1].split(/\s+/).map((w) => w[0].toLowerCase()).join("");
-  if ((m = instruction.match(/words in reverse order: "(.+)"\.$/)))
-    return m[1].split(/\s+/).reverse().join(" ");
-  if ((m = instruction.match(/^Reply with only the (third|fourth|fifth|sixth) word of this sentence: "(.+)"\.$/)))
-    return m[2].split(/\s+/)[{ third: 2, fourth: 3, fifth: 4, sixth: 5 }[m[1]]];
-  if ((m = instruction.match(/^Reply with the word "(\w+)" followed by a space and the sum of (.+) and (.+)\.$/)))
+  // hidden-codeword
+  if ((m = instruction.match(/^In the transmission below, one word appears immediately after the codeword "(\w+)"\. Reply with only that word\. Transmission: (.+)$/))) {
+    const words = m[2].split(/\s+/).map(stripPunct);
+    return words[words.indexOf(m[1]) + 1];
+  }
+  // odd-category (the only semantic one — needs the pools, not a regex)
+  if ((m = instruction.match(/^Exactly one word in this list is a (\w+)\. Reply with only that word: (.+)\.$/))) {
+    const members = new Set(CATEGORIES[m[1]]);
+    return m[2].split(/\s+/).find((w) => members.has(w));
+  }
+  // sentence-hunt
+  if ((m = instruction.match(/^Reply with only the (third|fourth|fifth) word of the sentence that begins with the word "(\w+)"\. Transmission: (.+)$/))) {
+    const idx = { third: 2, fourth: 3, fifth: 4 }[m[1]];
+    const sentence = m[3].split(/\.\s*/).find((s) => s.startsWith(m[2]));
+    return sentence.split(/\s+/)[idx];
+  }
+  // scattered-parts
+  if (/Reply with the codeword followed by a space and the number\./.test(instruction)) {
+    const quoted = [...instruction.matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    const num = quoted.find((s) => /^\d+$/.test(s));
+    const word = quoted.find((s) => /^[a-z]+$/.test(s));
+    return `${word} ${num}`;
+  }
+  // arith-prose (buried mid-passage, so no ^ anchor)
+  if ((m = instruction.match(/Reply with the word "(\w+)" followed by a space and the sum of ([a-z\- ]+?) and ([a-z\- ]+?)\./)))
     return `${m[1]} ${WORDS_TO_NUM.get(m[2]) + WORDS_TO_NUM.get(m[3])}`;
-  if ((m = instruction.match(/^Reply with the word "(\w+)" followed by a space and the result of (.+) minus (.+)\.$/)))
+  if ((m = instruction.match(/Reply with the word "(\w+)" followed by a space and the result of ([a-z\- ]+?) minus ([a-z\- ]+?)\./)))
     return `${m[1]} ${WORDS_TO_NUM.get(m[2]) - WORDS_TO_NUM.get(m[3])}`;
   throw new Error(`unsolvable instruction: ${instruction}`);
 }
+
+// Tier 2: parse the pipeline description, run it. No memorized one-liner.
+async function solveTier2(payload) {
+  const { input, steps } = JSON.parse(payload);
+  return applyPipeline(input, steps);
+}
+
+test("the reference solver answers every tier-1 archetype", async () => {
+  for (const taskId of Object.keys(TASKS)) {
+    for (let i = 0; i < 25; i++) {
+      const ch = await generateChallenge(1, { task: taskId });
+      const answer = solve(decodePayload(ch.payload, ch.encoding));
+      assert.deepEqual(await verifyAnswer(ch, answer), { ok: true, reason: "" }, taskId);
+    }
+  }
+});
 
 // --- sign.js ----------------------------------------------------------------
 
@@ -85,9 +127,12 @@ test("tier 2 round trip: challenge -> digest -> cookie -> /docs", async () => {
   const chRes = await worker.fetch(jsonReq("/api/challenge", { tier: 2 }), { SECRET });
   const ch = await chRes.json();
   assert.equal(ch.tier, 2);
-  assert.match(ch.payload, /^[0-9a-f]{32}$/);
+  const { input, steps } = JSON.parse(ch.payload);
+  assert.match(input, /^[0-9a-f]{32}$/);
+  assert.equal(steps[0], "sha256");
+  assert.equal(steps.at(-1), "sha256");
 
-  const answer = await sha256Hex(ch.payload);
+  const answer = await solveTier2(ch.payload);
   const vRes = await worker.fetch(jsonReq("/api/verify", { token: ch.token, answer }), { SECRET });
   const v = await vRes.json();
   assert.deepEqual(v, { ok: true, redirect: "/docs" });
@@ -128,19 +173,19 @@ test("wrong answer fails; tampered token is rejected", async () => {
 test("next is sanitized against open redirects", async () => {
   for (const next of ["//evil.example", "https://evil.example", 42, null]) {
     const ch = await (await worker.fetch(jsonReq("/api/challenge", { tier: 2 }), { SECRET })).json();
-    const answer = await sha256Hex(ch.payload);
+    const answer = await solveTier2(ch.payload);
     const v = await (await worker.fetch(jsonReq("/api/verify", { token: ch.token, answer, next }), { SECRET })).json();
     assert.equal(v.redirect, "/docs");
   }
   const ch = await (await worker.fetch(jsonReq("/api/challenge", { tier: 2 }), { SECRET })).json();
-  const answer = await sha256Hex(ch.payload);
+  const answer = await solveTier2(ch.payload);
   const v = await (await worker.fetch(jsonReq("/api/verify", { token: ch.token, answer, next: "/deep/path?x=1" }), { SECRET })).json();
   assert.equal(v.redirect, "/deep/path?x=1");
 });
 
 test("a solved token can be replayed within its TTL (documented limitation)", async () => {
   const ch = await (await worker.fetch(jsonReq("/api/challenge", { tier: 2 }), { SECRET })).json();
-  const answer = await sha256Hex(ch.payload);
+  const answer = await solveTier2(ch.payload);
   for (let i = 0; i < 2; i++) {
     const v = await (await worker.fetch(jsonReq("/api/verify", { token: ch.token, answer }), { SECRET })).json();
     assert.equal(v.ok, true);
@@ -194,7 +239,7 @@ test("middleware mode gates and proxies to ORIGIN_URL, stripping cf_gate", async
   // Gated → proxied through, cf_gate stripped, other cookies preserved.
   const ch = await (await worker.fetch(jsonReq("/api/challenge", { tier: 2 }), env)).json();
   const vRes = await worker.fetch(
-    jsonReq("/api/verify", { token: ch.token, answer: await sha256Hex(ch.payload) }),
+    jsonReq("/api/verify", { token: ch.token, answer: await solveTier2(ch.payload) }),
     env,
   );
   const cookie = gateCookie(vRes);

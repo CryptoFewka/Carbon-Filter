@@ -25,8 +25,9 @@ to machine reflexes.
 | Visitor | Result |
 | --- | --- |
 | LLM / AI agent | ✅ passes |
-| Script (`curl` + `sha256sum`) | ✅ passes |
-| Human who brought a decode one-liner or an LLM pipeline | ✅ passes (by design — building that *is* automation ability) |
+| Human piping challenges through an LLM or a quick script | ✅ passes (by design — that pipeline *is* automation ability) |
+| Human with a memorized `sha256sum` one-liner | ❌ the pipeline is randomized per challenge |
+| Human with a decode one-liner | ❌ decoding buys a reading exam with the clock still running |
 | Human racing to copy-paste into a chat tab | 🎲 maybe — the round-trip barely fits the deadline |
 | Unassisted human | ❌ filtered |
 
@@ -68,24 +69,37 @@ demonstrate automation ability get in.
 
 Two verification tiers, both on the landing page:
 
-- **Tier 1 — LLM verification (12 s).** The instruction (e.g. *"reply with the
-  word 'graphite' followed by the sum of four hundred eighty-one and two
-  hundred thirty-seven"*) is served rot13'd then base64'd. An LLM decodes and
-  answers natively; a human cannot hand-decode base64 inside the deadline —
-  and even the copy-paste-to-a-chat-tab route is a photo finish at 12
-  seconds. In practice you build an ad hoc tool, which is exactly the point:
+- **Tier 1 — LLM verification (10 s).** A ~100-word "transmission" plus a
+  question about it — *"reply with only the word that appears immediately
+  after the codeword 'graphite'"*, *"exactly one word in this list is a
+  gemstone; reply with it"* — served rot13'd then base64'd. An LLM decodes
+  and answers natively. A decode one-liner still works —
 
   ```sh
-  echo "<payload>" | base64 -d | tr 'A-Za-z' 'N-ZA-Mn-za-m'   # decoded; obeying it is the easy part
+  echo "<payload>" | base64 -d | tr 'A-Za-z' 'N-ZA-Mn-za-m'
   ```
 
-  Or pipe the payload straight into an LLM CLI. Assembling that one-liner
-  under deadline is precisely the automation ability being verified.
-- **Tier 2 — Automation verification (20 s).** Return the SHA-256 hex digest
-  of a displayed nonce. Proves code-execution ability:
+  — but all it buys a human is a reading-comprehension exam with a few
+  seconds left on the clock. Pipe the payload into a model instead.
+- **Tier 2 — Automation verification (20 s).** The payload describes a
+  derivation pipeline over a nonce, randomized per challenge:
+
+  ```json
+  {"input":"40eb23c79df65b39…","steps":["sha256","drop:12","reverse","sha256"]}
+  ```
+
+  Ops are string-level: `sha256` = lowercase hex SHA-256 of the ASCII
+  string, `take:N` / `drop:N` = keep / remove the first N characters,
+  `reverse` = reverse the string, `concat:S` = append S. There is no
+  one-liner to memorize — you read the ops and write (or generate) a small
+  program before the deadline. Any language does it in ~5 lines; the repo's
+  own module does it in one:
 
   ```sh
-  echo -n "<nonce>" | sha256sum
+  node --input-type=module -e '
+    import { applyPipeline } from "./carbon-filter.js";
+    const { input, steps } = JSON.parse(process.argv[1]);
+    console.log(await applyPipeline(input, steps));' '<payload>'
   ```
 
 Pass either tier and you're redirected to the protected Carbon Filter
@@ -100,12 +114,12 @@ Every challenge is a self-describing token:
 {
   v: 1,
   tier: 1,                       // 1 = LLM-native, 2 = strict/automation
-  task: "arith-prose",           // archetype; tier 2 is always "sha256-nonce"
-  payload: "T3RueSBjbmZm...",    // what's displayed: encoded instruction (t1) or hex nonce (t2)
+  task: "hidden-codeword",       // archetype; tier 2 is always "hash-pipeline"
+  payload: "T3RueSBjbmZm...",    // what's displayed: encoded transmission (t1) or pipeline JSON (t2)
   encoding: ["rot13","base64"],  // innermost-first; [] for tier 2
   nonce: "9f2c47a1...",          // 16 random bytes as hex
   iat: 1751587200000,            // issued-at, epoch ms
-  ttl: 12,                       // seconds to answer
+  ttl: 10,                       // seconds to answer
   answerDigest: "ab34..."        // sha256(normalize(answer) + ":" + nonce)
 }
 ```
@@ -115,16 +129,17 @@ comparison plus a TTL check. Answers are normalized forgivingly (case,
 whitespace, quotes, trailing punctuation), so an LLM replying `"Graphite 718."`
 passes.
 
-Tier-1 task archetypes (all tokenizer-safe — no letter counting, no
-letter-level reversal, tasks LLMs ace at ~100%):
+Tier-1 task archetypes (all passage-scale and tokenizer-safe — no letter
+counting, no letter-level reversal, tasks LLMs ace at ~100% but that outrun
+human reading speed inside the deadline):
 
-| Archetype | Example |
+| Archetype | Task |
 | --- | --- |
-| `arith-prose` | codeword + arithmetic written out in words |
-| `nth-word` | "reply with only the fourth word of this sentence: …" |
-| `word-reverse` | reverse the **word order** of a quoted phrase |
-| `acrostic` | first letter of each listed word, joined |
-| `echo-transform` | echo a string derived from the challenge nonce |
+| `hidden-codeword` | the word immediately after a codeword, buried in ~100 words of static |
+| `odd-category` | exactly one word in the list is a gemstone/animal/fruit/metal — semantic, regex-proof |
+| `arith-prose` | codeword + arithmetic written out in words, hidden mid-transmission |
+| `sentence-hunt` | the Nth word of the sentence that begins with a given word |
+| `scattered-parts` | reassemble a quoted codeword and a quoted nonce-derived number |
 
 Failed or expired challenges are discarded; a fresh challenge (new nonce, new
 task) is always generated. Never reused.

@@ -31,6 +31,9 @@ them:
    It exists to demonstrate the mechanism and the UX; the Worker is the real
    enforcement.
 4. **The gate proves automation ability, not identity.** Passing means the
-   visitor could decode an instruction or hash a nonce under deadline —
-   nothing more. Carbon Filter is satire with a working core; do not use it
-   as your only authentication layer.
+   visitor could comprehend an encoded transmission or implement a hash
+   pipeline under deadline — nothing more. Carbon Filter is satire with a
+   working core; do not use it as your only authentication layer.
+5. **Task archetypes and reference solvers are public.** Anyone can script a
+   solver straight from this repo — by design. The gate filters for the
+   ability to bring or build automation, not for secrecy of the tasks.

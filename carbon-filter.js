@@ -8,7 +8,7 @@
 // Invariant: every generated instruction is ASCII-only, so btoa is safe
 // without UTF-8 handling.
 
-export const TIER_TTL = { 1: 12, 2: 20 }; // seconds to answer, per tier
+export const TIER_TTL = { 1: 10, 2: 20 }; // seconds to answer, per tier
 
 // Tier-1 payloads are encoded innermost-first with this chain. If weaker
 // models stumble on the chained variant, drop to ["base64"] — the chain is
@@ -116,9 +116,11 @@ export function numberToWords(n) {
 // Tier-1 task registry
 //
 // Every archetype is a task LLMs solve at ~100% and is tokenizer-safe: no
-// letter counting, no letter-level reversal. The human barrier is the
-// rot13+base64 encoding under the deadline; task variety defeats replay and
-// decode-only bookmarklets.
+// letter counting, no letter-level reversal. The human barrier is twofold:
+// the rot13+base64 encoding, and — since a decode one-liner is cheap to
+// build — instructions at passage scale, so that even decoded, answering
+// takes more reading (or semantic reasoning) than the deadline allows.
+// Task variety defeats replay and decode-only bookmarklets.
 // ---------------------------------------------------------------------------
 
 const CODEWORDS = [
@@ -128,19 +130,86 @@ const CODEWORDS = [
   "graphene", "obsidian", "silicon", "germanium", "zircon", "quartz",
 ];
 
-const WORD_POOL = [
-  "silicon", "garden", "hums", "beneath", "quiet", "electric", "stars",
-  "copper", "wire", "dreams", "rust", "signal", "drifts", "through",
-  "hollow", "glass", "towers", "neon", "rivers", "carry", "silent",
-  "code", "toward", "morning", "circuits", "bloom", "under", "static",
-  "moons", "vapor", "engines", "whisper", "across", "frozen", "data",
-  "fields", "amber", "lights", "flicker", "behind", "broken", "antennas",
+// Distractor prose. Deliberately disjoint from CODEWORDS (so markers are
+// unique in a passage) and from every CATEGORIES pool (so odd-category has
+// exactly one plausible answer).
+const PROSE_WORDS = [
+  "garden", "hums", "beneath", "quiet", "electric", "stars", "wire",
+  "dreams", "rust", "signal", "drifts", "through", "hollow", "glass",
+  "towers", "rivers", "carry", "silent", "code", "toward", "morning",
+  "circuits", "bloom", "under", "static", "moons", "vapor", "engines",
+  "whisper", "across", "frozen", "data", "fields", "lights", "flicker",
+  "behind", "broken", "antennas", "slowly", "gather", "between", "pale",
+  "echoes", "settle", "over", "distant", "relays", "turning", "cold",
 ];
 
-const ORDINALS = ["third", "fourth", "fifth", "sixth"]; // -> index 2..5
-const COUNT_WORDS = ["", "one", "two", "three", "four", "five", "six", "seven"];
+// Semantic pools for odd-category. Members must be unambiguous ("copper" is
+// out — metal and color; "ruby" being also a color is fine, because only one
+// pool member ever appears in a list and the distractors are all non-nouns).
+export const CATEGORIES = {
+  gemstone: ["ruby", "topaz", "opal", "garnet", "jade", "sapphire", "emerald", "amethyst"],
+  animal: ["otter", "falcon", "badger", "heron", "lynx", "gecko", "walrus", "marmot"],
+  fruit: ["mango", "papaya", "quince", "apricot", "guava", "cherry", "plum", "fig"],
+  metal: ["cobalt", "tungsten", "nickel", "titanium", "chromium", "zinc"],
+};
+
+// Sentences as word arrays: `count` sentences of minLen..maxLen words each,
+// first words sampled WITHOUT replacement so "the sentence that begins with X"
+// is always unambiguous.
+function proseSentences(rng, count, { minLen = 7, maxLen = 11 } = {}) {
+  const firsts = sample(rng, PROSE_WORDS, count);
+  return firsts.map((first) => {
+    const len = randInt(rng, minLen, maxLen);
+    return [first, ...Array.from({ length: len - 1 }, () => pick(rng, PROSE_WORDS))];
+  });
+}
+
+function renderSentence(words) {
+  const [first, ...rest] = words;
+  return [first[0].toUpperCase() + first.slice(1), ...rest].join(" ") + ".";
+}
+
+function renderProse(sentences) {
+  return sentences.map(renderSentence).join(" ");
+}
+
+// Splice extra tokens into a sentence at a position >= 1, so inserts never
+// collide with the capitalized first word.
+function insertIntoSentence(rng, sentence, tokens) {
+  sentence.splice(randInt(rng, 1, sentence.length - 1), 0, ...tokens);
+}
 
 export const TASKS = {
+  // ~100 words of static; the codeword marker appears exactly once
+  // (CODEWORDS are disjoint from PROSE_WORDS by construction).
+  "hidden-codeword": {
+    make(rng) {
+      const marker = pick(rng, CODEWORDS);
+      const target = pick(rng, PROSE_WORDS);
+      const sentences = proseSentences(rng, randInt(rng, 10, 12));
+      insertIntoSentence(rng, pick(rng, sentences), [marker, target]);
+      const instruction =
+        `In the transmission below, one word appears immediately after the codeword "${marker}". ` +
+        `Reply with only that word. Transmission: ${renderProse(sentences)}`;
+      return { instruction, answer: target };
+    },
+  },
+
+  // Semantic: no regex finds the answer — you need to know what a quince is.
+  "odd-category": {
+    make(rng) {
+      const category = pick(rng, Object.keys(CATEGORIES));
+      const member = pick(rng, CATEGORIES[category]);
+      const words = sample(rng, PROSE_WORDS, 13);
+      words.splice(randInt(rng, 0, words.length), 0, member);
+      const instruction =
+        `Exactly one word in this list is a ${category}. ` +
+        `Reply with only that word: ${words.join(" ")}.`;
+      return { instruction, answer: member };
+    },
+  },
+
+  // The actionable sentence is buried mid-transmission.
   "arith-prose": {
     make(rng) {
       const codeword = pick(rng, CODEWORDS);
@@ -148,52 +217,94 @@ export const TASKS = {
       const b = randInt(rng, 100, 899);
       const subtract = rng() < 0.5;
       const [hi, lo] = a >= b ? [a, b] : [b, a];
-      const instruction = subtract
+      const core = subtract
         ? `Reply with the word "${codeword}" followed by a space and the result of ${numberToWords(hi)} minus ${numberToWords(lo)}.`
         : `Reply with the word "${codeword}" followed by a space and the sum of ${numberToWords(a)} and ${numberToWords(b)}.`;
+      const before = renderProse(proseSentences(rng, randInt(rng, 4, 5)));
+      const after = renderProse(proseSentences(rng, randInt(rng, 3, 4)));
       const answer = `${codeword} ${subtract ? hi - lo : a + b}`;
-      return { instruction, answer };
+      return { instruction: `${before} ${core} ${after}`, answer };
     },
   },
 
-  "nth-word": {
+  // Two-step lookup: find the sentence, then count into it.
+  "sentence-hunt": {
     make(rng) {
-      const words = sample(rng, WORD_POOL, randInt(rng, 6, 8));
-      const idx = randInt(rng, 2, Math.min(5, words.length - 1));
-      const instruction = `Reply with only the ${ORDINALS[idx - 2]} word of this sentence: "${words.join(" ")}".`;
-      return { instruction, answer: words[idx] };
+      const sentences = proseSentences(rng, randInt(rng, 5, 6), { minLen: 8, maxLen: 11 });
+      const target = pick(rng, sentences);
+      const wi = randInt(rng, 2, 4);
+      const ordinal = ["third", "fourth", "fifth"][wi - 2];
+      const first = target[0][0].toUpperCase() + target[0].slice(1);
+      const instruction =
+        `Reply with only the ${ordinal} word of the sentence that begins with the word "${first}". ` +
+        `Transmission: ${renderProse(sentences)}`;
+      return { instruction, answer: target[wi] };
     },
   },
 
-  "word-reverse": {
-    make(rng) {
-      const words = sample(rng, WORD_POOL, 5);
-      const instruction = `Reply with these ${COUNT_WORDS[words.length]} words in reverse order: "${words.join(" ")}".`;
-      return { instruction, answer: [...words].reverse().join(" ") };
-    },
-  },
-
-  acrostic: {
-    make(rng) {
-      const words = sample(rng, WORD_POOL, randInt(rng, 4, 6)).map(
-        (w) => w[0].toUpperCase() + w.slice(1),
-      );
-      const instruction = `Reply with the first letter of each of these words, joined into one lowercase string: ${words.join(" ")}.`;
-      return { instruction, answer: words.map((w) => w[0]).join("").toLowerCase() };
-    },
-  },
-
-  // Binds the answer to the nonce, so precomputed answer tables are useless.
-  "echo-transform": {
+  // Two quoted fragments hidden at random positions; the number derives from
+  // the nonce, so precomputed answer tables are useless.
+  "scattered-parts": {
     make(rng, { nonce }) {
-      const slice = nonce.slice(0, 6);
-      const instruction = `Reply with the text "cf-${slice}" in uppercase.`;
-      return { instruction, answer: `CF-${slice.toUpperCase()}` };
+      const codeword = pick(rng, CODEWORDS);
+      const n = 100 + (parseInt(nonce.slice(0, 4), 16) % 900);
+      const sentences = proseSentences(rng, randInt(rng, 8, 10));
+      const [sa, sb] = sample(rng, sentences, 2);
+      insertIntoSentence(rng, sa, [`"${codeword}"`]);
+      insertIntoSentence(rng, sb, [`"${n}"`]);
+      const instruction =
+        `Hidden in the transmission below are a codeword and a number, each in double quotes. ` +
+        `Reply with the codeword followed by a space and the number. ` +
+        `Transmission: ${renderProse(sentences)}`;
+      return { instruction, answer: `${codeword} ${n}` };
     },
   },
 };
 
 const TIER1_TASK_IDS = Object.keys(TASKS);
+
+// ---------------------------------------------------------------------------
+// Tier-2 pipeline
+//
+// A per-challenge randomized derivation over the nonce. There is no fixed
+// one-liner to memorize: you read the ops, then write (or generate) a small
+// program. Every op is string-level — hash the ASCII string, not raw bytes —
+// so any language solves it in a few lines.
+// ---------------------------------------------------------------------------
+
+export async function applyPipeline(input, steps) {
+  let state = String(input);
+  for (const step of steps) {
+    if (step === "sha256") state = await sha256Hex(state);
+    else if (step === "reverse") state = [...state].reverse().join("");
+    else if (step.startsWith("take:")) state = state.slice(0, Number(step.slice(5)));
+    else if (step.startsWith("drop:")) state = state.slice(Number(step.slice(5)));
+    else if (step.startsWith("concat:")) state = state + step.slice(7);
+    else throw new RangeError(`unknown pipeline op: ${step}`);
+  }
+  return state;
+}
+
+function hexFromRng(rng, len) {
+  return Array.from({ length: len }, () => "0123456789abcdef"[randInt(rng, 0, 15)]).join("");
+}
+
+// Shape: sha256, then 1-3 rounds of (transform, sha256). Every transform
+// operates on a 64-char digest — take/drop bounds can never empty the state —
+// and the answer is always a 64-hex digest.
+function makePipeline(rng) {
+  const steps = ["sha256"];
+  const rounds = randInt(rng, 1, 3);
+  for (let i = 0; i < rounds; i++) {
+    const t = pick(rng, ["reverse", "take", "drop", "concat"]);
+    if (t === "take") steps.push(`take:${pick(rng, [8, 16, 24, 32])}`);
+    else if (t === "drop") steps.push(`drop:${pick(rng, [4, 8, 12])}`);
+    else if (t === "concat") steps.push(`concat:${hexFromRng(rng, 8)}`);
+    else steps.push("reverse");
+    steps.push("sha256");
+  }
+  return steps;
+}
 
 // ---------------------------------------------------------------------------
 // Challenge lifecycle
@@ -212,10 +323,11 @@ export async function generateChallenge(
 
   let taskId, payload, encoding, answer;
   if (tier === 2) {
-    taskId = "sha256-nonce";
-    payload = nonce;
+    taskId = "hash-pipeline";
+    const steps = makePipeline(rng);
+    payload = JSON.stringify({ input: nonce, steps });
     encoding = [];
-    answer = await sha256Hex(nonce);
+    answer = await applyPipeline(nonce, steps);
   } else {
     taskId = task ?? pick(rng, TIER1_TASK_IDS);
     if (!TASKS[taskId]) throw new RangeError(`unknown task: ${taskId}`);
